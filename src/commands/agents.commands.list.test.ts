@@ -12,6 +12,7 @@ vi.mock("./agents.command-shared.js", () => ({
 }));
 
 vi.mock("./agents.providers.js", () => ({
+  buildProviderSummaryMetadataIndex: () => new Map(),
   buildProviderStatusIndex: buildProviderStatusIndexMock,
   listProvidersForAgent: () => ["Telegram default: configured"],
   summarizeBindings: () => ["Telegram default"],
