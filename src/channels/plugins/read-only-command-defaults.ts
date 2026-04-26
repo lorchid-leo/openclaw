@@ -36,9 +36,10 @@ function hasExplicitDisabledPluginEntry(
     return false;
   }
   const entry = readOwnRecordValue(entries as Record<string, unknown>, pluginId);
-  return Boolean(
-    entry && typeof entry === "object" && !Array.isArray(entry) && entry.enabled === false,
-  );
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return false;
+  }
+  return (entry as { enabled?: unknown }).enabled === false;
 }
 
 export function normalizeChannelCommandDefaults(
