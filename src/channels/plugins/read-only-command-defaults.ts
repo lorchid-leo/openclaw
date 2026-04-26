@@ -1,7 +1,10 @@
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { isBlockedObjectKey } from "../../infra/prototype-keys.js";
 import type { PluginManifestRecord } from "../../plugins/manifest-registry.js";
-import { loadPluginManifestRegistryForPluginRegistry } from "../../plugins/plugin-registry.js";
+import {
+  isPluginEnabled,
+  loadPluginManifestRegistryForPluginRegistry,
+} from "../../plugins/plugin-registry.js";
 import { normalizeOptionalString } from "../../shared/string-coerce.js";
 
 const SAFE_MANIFEST_CHANNEL_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
@@ -22,6 +25,20 @@ function readOwnRecordValue(record: Record<string, unknown>, key: string): unkno
     return undefined;
   }
   return record[key];
+}
+
+function hasExplicitDisabledPluginEntry(
+  config: OpenClawConfig | undefined,
+  pluginId: string,
+): boolean {
+  const entries = config?.plugins?.entries;
+  if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
+    return false;
+  }
+  const entry = readOwnRecordValue(entries as Record<string, unknown>, pluginId);
+  return Boolean(
+    entry && typeof entry === "object" && !Array.isArray(entry) && entry.enabled === false,
+  );
 }
 
 export function normalizeChannelCommandDefaults(
@@ -66,6 +83,20 @@ export function resolveReadOnlyChannelCommandDefaults(
   });
   for (const record of registry.plugins) {
     if (!record.channels.includes(normalizedChannelId)) {
+      continue;
+    }
+    const enabled = isPluginEnabled({
+      pluginId: record.id,
+      config: options.config,
+      stateDir: options.stateDir,
+      workspaceDir: options.workspaceDir,
+      env: options.env ?? process.env,
+    });
+    const explicitlyDisabled =
+      hasExplicitDisabledPluginEntry(options.config, record.id) ||
+      (record.id !== normalizedChannelId &&
+        hasExplicitDisabledPluginEntry(options.config, normalizedChannelId));
+    if (!enabled && (record.origin !== "bundled" || explicitlyDisabled)) {
       continue;
     }
     const channelConfigValue = record.channelConfigs
