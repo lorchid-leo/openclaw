@@ -27,21 +27,6 @@ function readOwnRecordValue(record: Record<string, unknown>, key: string): unkno
   return record[key];
 }
 
-function hasExplicitDisabledPluginEntry(
-  config: OpenClawConfig | undefined,
-  pluginId: string,
-): boolean {
-  const entries = config?.plugins?.entries;
-  if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
-    return false;
-  }
-  const entry = readOwnRecordValue(entries as Record<string, unknown>, pluginId);
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return false;
-  }
-  return (entry as { enabled?: unknown }).enabled === false;
-}
-
 export function normalizeChannelCommandDefaults(
   value: ChannelCommandDefaults | undefined,
 ): ChannelCommandDefaults | undefined {
@@ -86,18 +71,21 @@ export function resolveReadOnlyChannelCommandDefaults(
     if (!record.channels.includes(normalizedChannelId)) {
       continue;
     }
-    const enabled = isPluginEnabled({
-      pluginId: record.id,
-      config: options.config,
-      stateDir: options.stateDir,
-      workspaceDir: options.workspaceDir,
-      env: options.env ?? process.env,
-    });
-    const explicitlyDisabled =
-      hasExplicitDisabledPluginEntry(options.config, record.id) ||
-      (record.id !== normalizedChannelId &&
-        hasExplicitDisabledPluginEntry(options.config, normalizedChannelId));
-    if (!enabled && (record.origin !== "bundled" || explicitlyDisabled)) {
+    if (
+      record.id !== normalizedChannelId &&
+      record.channelCatalogMeta?.id !== normalizedChannelId
+    ) {
+      continue;
+    }
+    if (
+      !isPluginEnabled({
+        pluginId: record.id,
+        config: options.config,
+        stateDir: options.stateDir,
+        workspaceDir: options.workspaceDir,
+        env: options.env ?? process.env,
+      })
+    ) {
       continue;
     }
     const channelConfigValue = record.channelConfigs
